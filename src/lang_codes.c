@@ -27,7 +27,6 @@
  * *************************************************************************/
 
 const lang_code_t lang_codes[] = {
-  { "und", NULL, NULL , "Undetermined" },
   { "aar", "aa", NULL , "Afar" },
   { "abk", "ab", NULL , "Abkhazian" },
   { "ace", NULL, NULL , "Achinese" },
@@ -461,6 +460,7 @@ const lang_code_t lang_codes[] = {
   { "uig", "ug", NULL , "Uighur; Uyghur" },
   { "ukr", "uk", NULL , "Ukrainian" },
   { "umb", NULL, NULL , "Umbundu" },
+  { "und", NULL, NULL , "Undetermined" },
   { "urd", "ur", NULL , "Urdu" },
   { "uzb", "uz", NULL , "Uzbek" },
   { "v.o", NULL, NULL , "Voice Original" },
@@ -491,13 +491,30 @@ const lang_code_t lang_codes[] = {
   { "znd", NULL, NULL , "Zande languages" },
   { "zul", "zu", NULL , "Zulu" },
   { "zun", NULL, NULL , "Zuni" },
-  { "zza", NULL, NULL , "Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki" },
-  { NULL, NULL, NULL, NULL }
+  { "zza", NULL, NULL , "Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki" }
 };
+
+const lang_code_t undef_lang_code = { "und", NULL, NULL , "Undetermined" };
+
+const int lang_codes_len = sizeof(lang_codes)/sizeof(lang_code_t);
+
+static lang_code_t *iso639_1;
+static int iso639_1_len;
+static int iso639_1_valid = 0;
+
+static lang_code_t *iso639_2t;
+static int iso639_2t_len;
+static int iso639_2t_valid = 0;
 
 /* **************************************************************************
  * Functions
  * *************************************************************************/
+static int compcodes(const void *m1, const void *m2)
+{
+  lang_code_t *code1 = (lang_code_t*)m1;
+  lang_code_t *code2 = (lang_code_t*)m2;
+  return strcmp(code1->code2b, code2->code2b);
+}
 
 static const lang_code_t *_lang_code_get ( const char *code, size_t len )
 {
@@ -527,16 +544,75 @@ static const lang_code_t *_lang_code_get ( const char *code, size_t len )
 
     /* Search */
     if (i) {
-      const lang_code_t *c = lang_codes;
-      while (c->code2b) {
-        if ( !strcmp(tmp, c->code2b) )              return c;
-        if ( c->code1  && !strcmp(tmp, c->code1) )  return c;
-        if ( c->code2t && !strcmp(tmp, c->code2t) ) return c;
-        c++;
+      lang_code_t keycode;
+      keycode.code2b = tmp;
+
+      lang_code_t *res = bsearch(&keycode, lang_codes, lang_codes_len,
+                                 sizeof(lang_code_t), compcodes);
+
+      if(res)
+        return res;
+
+      if(iso639_1_valid == 0) {
+        int key=0;
+        int nrCodes = 0;
+        const lang_code_t *c = lang_codes;
+        while (key++ < lang_codes_len) {
+          if ( c->code1 ) 
+            ++nrCodes;
+          c++;
+        }
+        iso639_1 = malloc(nrCodes * sizeof(lang_code_t));
+        iso639_1_len = nrCodes;
+
+        key=0;
+	int j=0;
+        c = lang_codes;
+        while (key++ < lang_codes_len) {
+          if ( c->code1 ) {
+            iso639_1[j++] = *c;
+          }
+          c++;
+        }
+	iso639_1_valid = 1;
       }
+
+      res = bsearch(&keycode, iso639_1, iso639_1_len,
+                                 sizeof(lang_code_t), compcodes);
+      if(res)
+        return res;
+
+      if(iso639_2t_valid == 0) {
+        int key=0;
+        int nrCodes = 0;
+        const lang_code_t *c = lang_codes;
+        while (key++ < lang_codes_len) {
+          if ( c->code2t ) 
+            ++nrCodes;
+          c++;
+        }
+        iso639_2t = malloc(nrCodes * sizeof(lang_code_t));
+        iso639_2t_len = nrCodes;
+
+        key=0;
+	int j=0;
+        c = lang_codes;
+        while (key++ < lang_codes_len) {
+          if ( c->code2t ) {
+            iso639_2t[j++] = *c;
+          }
+          c++;
+        }
+	iso639_2t_valid = 1;
+      }
+
+      res = bsearch(&keycode, iso639_2t, iso639_2t_len,
+                                 sizeof(lang_code_t), compcodes);
+      if(res)
+        return res;
     }
   }
-  return &lang_codes[0];
+  return &undef_lang_code;
 }
 
 const char *lang_code_get ( const char *code )

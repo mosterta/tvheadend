@@ -28,6 +28,7 @@ typedef struct lang_code
 } lang_code_t;
 
 extern const lang_code_t lang_codes[];
+extern const int lang_codes_len;
 
 /* Convert code to preferred internal code */
 const char *lang_code_get ( const char *code );
